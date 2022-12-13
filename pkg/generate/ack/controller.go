@@ -113,12 +113,11 @@ var (
 		"GoCodeSetResourceForStruct": func(r *ackmodel.CRD, targetFieldName string, targetVarName string, targetShapeRef *awssdkmodel.ShapeRef, sourceVarName string, sourceShapeRef *awssdkmodel.ShapeRef, indentLevel int) string {
 			f, ok := r.Fields[targetFieldName]
 			if !ok {
-				return ""
+				return code.SetResourceForStruct(r.Config(), r, targetFieldName, targetVarName, targetShapeRef, nil, sourceVarName, sourceShapeRef, "", model.OpTypeList, indentLevel)
 			}
 			// We may have some special instructions for how to handle setting the
 			// field value...
 			setCfg := f.GetSetterConfig(model.OpTypeList)
-
 			if setCfg != nil && setCfg.Ignore {
 				return ""
 			}
