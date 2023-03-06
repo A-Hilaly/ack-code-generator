@@ -239,11 +239,6 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 		// Now add the additional Status fields that are required from other
 		// API operations.
 		for targetFieldName, fieldConfig := range m.cfg.GetFieldConfigs(crdName) {
-			if !fieldConfig.IsReadOnly {
-				// It's a Spec field...
-				continue
-			}
-
 			var found bool
 			var memberShapeRef *awssdkmodel.ShapeRef
 
@@ -275,13 +270,23 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 					)
 					panic(msg)
 				}
+			} else if fieldConfig.Type != nil {
+				// We have a custom field that has a type override and has not
+				// been inferred via the normal Create Input shape or via the
+				// SourceFieldConfig. Manually construct the field and its
+				// shape reference here.
+				typeOverride := *fieldConfig.Type
+				memberShapeRef = m.SDKAPI.GetShapeRefFromType(typeOverride)
 			} else {
 				// Status field is not well defined
 				continue
 			}
-
 			memberNames := names.New(targetFieldName)
-			crd.AddStatusField(memberNames, memberShapeRef)
+			if fieldConfig.IsReadOnly {
+				crd.AddStatusField(memberNames, memberShapeRef)
+			} else {
+				crd.AddSpecField(memberNames, memberShapeRef)
+			}
 		}
 
 		// Now add the additional printer columns that have been defined explicitly
