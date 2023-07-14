@@ -170,6 +170,7 @@ func (a *SDKAPI) GetShapeRefFromType(
 				},
 			}
 		} else {
+			fmt.Println("return shape that is not empty")
 			return &awssdkmodel.ShapeRef{
 				Shape: &awssdkmodel.Shape{
 					Type: sdkType,
@@ -177,6 +178,7 @@ func (a *SDKAPI) GetShapeRefFromType(
 			}
 		}
 	}
+	fmt.Println("returnning nil")
 	return nil
 }
 

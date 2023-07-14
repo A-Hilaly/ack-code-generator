@@ -94,6 +94,8 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 	getAttributesOps := (*opMap)[OpTypeGetAttributes]
 	setAttributesOps := (*opMap)[OpTypeSetAttributes]
 
+	toInjectNestedFields := map[string]*ackgenconfig.FieldConfig{}
+
 	for crdName, createOp := range createOps {
 		if m.cfg.ResourceIsIgnored(crdName) {
 			continue
@@ -182,6 +184,13 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 				// shape reference here.
 				typeOverride := *fieldConfig.Type
 				memberShapeRef = m.SDKAPI.GetShapeRefFromType(typeOverride)
+
+				targetFieldName := "code.S3SHA256"
+				if strings.Contains(targetFieldName, ".") {
+					fmt.Println("REGISTRING NEW FIELD", targetFieldName, *fieldConfig.Type)
+					toInjectNestedFields[targetFieldName] = fieldConfig
+					continue
+				}
 			} else {
 				// Spec field is not well defined
 				continue
@@ -282,6 +291,7 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 				// been inferred via the normal Create Input shape or via the
 				// SourceFieldConfig. Manually construct the field and its
 				// shape reference here.
+				// x.y
 				typeOverride := *fieldConfig.Type
 				memberShapeRef = m.SDKAPI.GetShapeRefFromType(typeOverride)
 			} else {
@@ -298,6 +308,20 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 		crd.addAdditionalPrinterColumns(m.cfg.GetAdditionalColumns(crdName))
 
 		crds = append(crds, crd)
+
+		fmt.Println("Im here")
+		if crd.Names.Camel == "Function" {
+			fmt.Println("CRD is function")
+
+			field := crd.SpecFields["Code"]
+			// vpcconfig.SubnetIDs.S3SHA256
+
+			for toInjectField, fieldConfig := range toInjectNestedFields {
+				if toInjectField == "code.S3SHA256" {
+					field.ShapeRef.Shape.MemberRefs["S3SHA256"] = m.SDKAPI.GetShapeRefFromType(*fieldConfig.Type)
+				}
+			}
+		}
 	}
 	sort.Slice(crds, func(i, j int) bool {
 		return crds[i].Names.Camel < crds[j].Names.Camel
@@ -674,6 +698,7 @@ func replaceSecretAttrGoType(
 func (m *Model) processFields(crds []*CRD) {
 	for _, crd := range crds {
 		for _, field := range crd.SpecFields {
+			fmt.Println("doing field", field.Names.Camel)
 			m.processTopLevelField(crd, field)
 		}
 		for _, field := range crd.StatusFields {
@@ -695,6 +720,11 @@ func (m *Model) processTopLevelField(
 			field.Names.Original,
 		)
 		return
+	}
+	if field.Names.Camel == "Code" {
+		fieldShape := field.ShapeRef.Shape
+		fieldType := fieldShape.Type
+		fmt.Println("doing field", field.Names.Camel, field.ShapeRef.Shape, fieldShape.Type, fieldType)
 	}
 	if field.ShapeRef != nil {
 		fieldShape := field.ShapeRef.Shape
@@ -719,6 +749,7 @@ func (m *Model) processField(
 	fieldShapeRef *awssdkmodel.ShapeRef,
 ) {
 	fieldNames := names.New(fieldName)
+	fmt.Println("=======", fieldNames.Camel)
 	fieldShape := fieldShapeRef.Shape
 	fieldShapeType := fieldShape.Type
 	fieldPath := parentFieldPath + fieldNames.Camel
@@ -742,6 +773,10 @@ func (m *Model) processStructField(
 	fieldPath string,
 	field *Field,
 ) {
+	if field.Names.Camel == "Code" {
+		fieldPath = fieldPath + "S3SHA256"
+		fmt.Println("processing struct", field.Names.Camel, fieldPath)
+	}
 	fieldShape := field.ShapeRef.Shape
 	for memberName, memberRef := range fieldShape.MemberRefs {
 		m.processField(crd, fieldPath, field, memberName, memberRef)
