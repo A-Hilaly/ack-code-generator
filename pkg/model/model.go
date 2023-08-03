@@ -14,6 +14,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -23,6 +24,7 @@ import (
 	awssdkmodel "github.com/aws/aws-sdk-go/private/model/api"
 
 	ackgenconfig "github.com/aws-controllers-k8s/code-generator/pkg/config"
+	"github.com/aws-controllers-k8s/code-generator/pkg/fieldpath"
 	ackfp "github.com/aws-controllers-k8s/code-generator/pkg/fieldpath"
 	"github.com/aws-controllers-k8s/code-generator/pkg/generate/templateset"
 	"github.com/aws-controllers-k8s/code-generator/pkg/util"
@@ -185,7 +187,6 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 				typeOverride := *fieldConfig.Type
 				memberShapeRef = m.SDKAPI.GetShapeRefFromType(typeOverride)
 
-				targetFieldName := "code.S3SHA256"
 				if strings.Contains(targetFieldName, ".") {
 					fmt.Println("REGISTRING NEW FIELD", targetFieldName, *fieldConfig.Type)
 					toInjectNestedFields[targetFieldName] = fieldConfig
@@ -309,14 +310,34 @@ func (m *Model) GetCRDs() ([]*CRD, error) {
 
 		crds = append(crds, crd)
 
-		fmt.Println("Im here")
 		if crd.Names.Camel == "Function" {
+			fmt.Println("Processing nested fields")
 			fmt.Println("CRD is function")
 
-			field := crd.SpecFields["Code"]
+			field, ok := crd.SpecFields["Code"]
+			if !ok {
+				fmt.Println("FAIL FAIL FAIL NO CODE STRCUT")
+			}
 			// vpcconfig.SubnetIDs.S3SHA256
 
 			for toInjectField, fieldConfig := range toInjectNestedFields {
+				// Split the path X.Y.Z => X.Y (struct.struct), Z=string
+				// we want to verify that X and Y and structs and Y is part of X
+
+				// field.ShapeRef.ShapeName = "Code"
+				// field.ShapeRef.Shape.ShapeName = "Code"
+
+				b, _ := json.Marshal(field.ShapeRef)
+				fmt.Println("++++++++++++++", string(b))
+
+				// X.Y.Z
+				fp := fieldpath.FromString("Code.S3Bucket")
+
+				fp.SetShapeNameMapping(map[string]string{"FunctionCode": "Code"})
+
+				fmt.Println("++++++++++++++", fp.IterShapeRefs(field.ShapeRef))
+				fmt.Println("++++++++++++++", fp.Front(), fp.Back())
+
 				if toInjectField == "code.S3SHA256" {
 					field.ShapeRef.Shape.MemberRefs["S3SHA256"] = m.SDKAPI.GetShapeRefFromType(*fieldConfig.Type)
 				}

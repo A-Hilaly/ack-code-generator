@@ -24,7 +24,8 @@ import (
 // particular field within a resource. Path implements json.Marshaler
 // interface.
 type Path struct {
-	parts []string
+	shapeNameMapping map[string]string
+	parts            []string
 }
 
 // String returns the dotted-notation representation of the Path
