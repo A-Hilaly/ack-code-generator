@@ -1,0 +1,9 @@
+resources:
+  Function:
+    fields:
+      Code.S3SHA256:
+        type: string
+        set:
+        - ignore: "to"
+          method: Create
+  

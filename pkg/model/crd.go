@@ -428,12 +428,10 @@ func (r *CRD) GetMatchingInputShapeFieldName(opType OpType, sdkField string) str
 		}
 		rmMethod := ResourceManagerMethodFromOpType(opType)
 		for _, setCfg := range f.FieldConfig.Set {
-			if setCfg == nil {
+			if setCfg == nil || setCfg.IgnoreSDKSetter() {
 				continue
 			}
-			if setCfg.Ignore == true || setCfg.To == nil {
-				continue
-			}
+
 			// If the Method attribute is nil, that means the setter config applies to
 			// all resource manager methods for this field.
 			if setCfg.Method == nil || strings.EqualFold(rmMethod, *setCfg.Method) {

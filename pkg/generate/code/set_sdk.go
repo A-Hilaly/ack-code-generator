@@ -1107,17 +1107,22 @@ func SetSDKForStruct(
 
 		// To check if the field member has `ignore` set to `true`.
 		// This condition currently applies only for members of a field whose shape is `structure`
+
 		var setCfg *ackgenconfig.SetFieldConfig
 		f, ok := r.Fields[targetFieldName]
 		if ok {
 			mf, ok := f.MemberFields[memberName]
 			if ok {
 				setCfg = mf.GetSetterConfig(op)
-				if setCfg != nil && setCfg.Ignore {
+				if setCfg != nil && setCfg.IgnoreSDKSetter() {
 					continue
 				}
 			}
+		}
 
+		fallBackName := r.GetMatchingInputShapeFieldName(op, targetFieldName)
+		if fallBackName == memberName {
+			// TODO: implement me
 		}
 
 		out += fmt.Sprintf(
