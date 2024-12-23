@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"strings"
 
+	awssdkmodel "github.com/aws-controllers-k8s/code-generator/pkg/api"
 	"github.com/aws-controllers-k8s/pkg/names"
-	awssdkmodel "github.com/aws/aws-sdk-go/private/model/api"
 	"github.com/gertd/go-pluralize"
 
 	ackgenconfig "github.com/aws-controllers-k8s/code-generator/pkg/config"
@@ -456,7 +456,6 @@ func newFieldRecurse(
 				cleanMemberNames := names.New(memberName)
 				memberPath := path + "." + cleanMemberNames.Camel
 				memberShape := containerShape.MemberRefs[memberName]
-
 				// Check to see if we have seen this shape before in the stack
 				// and panic. Cyclic references are not supported
 				if _, ok := nestedParentFields[memberShape.ShapeName]; ok {

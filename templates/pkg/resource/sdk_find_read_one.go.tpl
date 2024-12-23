@@ -28,7 +28,7 @@ func (rm *resourceManager) sdkFind(
 {{- end }}
 
 	var resp {{ .CRD.GetOutputShapeGoType .CRD.Ops.ReadOne }}
-	resp, err = rm.sdkapi.{{ .CRD.Ops.ReadOne.ExportedName }}WithContext(ctx, input)
+	resp, err = rm.sdkapi.{{ .CRD.Ops.ReadOne.ExportedName }}(ctx, input)
 {{- if $hookCode := Hook .CRD "sdk_read_one_post_request" }}
 {{ $hookCode }}
 {{- end }}

@@ -20,8 +20,8 @@ import (
 	"strings"
 
 	"github.com/aws-controllers-k8s/pkg/names"
-	awssdkmodel "github.com/aws/aws-sdk-go/private/model/api"
-
+	
+	awssdkmodel "github.com/aws-controllers-k8s/code-generator/pkg/api"
 	ackgenconfig "github.com/aws-controllers-k8s/code-generator/pkg/config"
 	ackfp "github.com/aws-controllers-k8s/code-generator/pkg/fieldpath"
 	"github.com/aws-controllers-k8s/code-generator/pkg/generate/templateset"
@@ -434,6 +434,9 @@ func (m *Model) GetTypeDefs() ([]*TypeDef, error) {
 				continue
 			}
 			gt := m.getShapeCleanGoType(memberShape)
+			// if memberName == "ElasticLoadBalancing" {
+			// 	fmt.Println(gt)
+			// }
 			attrs[memberName] = NewAttr(memberNames, gt, memberShape)
 		}
 		if len(attrs) == 0 {
@@ -473,7 +476,7 @@ func (m *Model) getShapeCleanGoType(shape *awssdkmodel.Shape) string {
 	case "structure":
 		if len(shape.MemberRefs) == 0 {
 			if m.cfg.HasEmptyShape(shape.ShapeName) {
-				return "map[string]*string"
+				return "map[string]string"
 			}
 			panic(fmt.Sprintf("structure %s has no fields, either configure it as a `empty_shape` or manually set the field type", shape.ShapeName))
 		}
@@ -486,7 +489,10 @@ func (m *Model) getShapeCleanGoType(shape *awssdkmodel.Shape) string {
 		if m.SDKAPI.HasConflictingTypeName(goType, m.cfg) {
 			typeNames.Camel += ConflictingNameSuffix
 		}
-		return "*" + typeNames.Camel
+		if typeNames.Camel == "ElasticLoadBalancing" {
+			fmt.Println(goType, typeNames.Original, typeNames.Camel)
+		}
+		return typeNames.Original
 	default:
 		return shape.GoType()
 	}

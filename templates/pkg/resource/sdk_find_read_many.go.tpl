@@ -27,7 +27,7 @@ func (rm *resourceManager) sdkFind(
 {{ $hookCode }}
 {{- end }}
 	var resp {{ .CRD.GetOutputShapeGoType .CRD.Ops.ReadMany }}
-	resp, err = rm.sdkapi.{{ .CRD.Ops.ReadMany.ExportedName }}WithContext(ctx, input)
+	resp, err = rm.sdkapi.{{ .CRD.Ops.ReadMany.ExportedName }}(ctx, input)
 {{- if $hookCode := Hook .CRD "sdk_read_many_post_request" }}
 {{ $hookCode }}
 {{- end }}

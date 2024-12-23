@@ -18,8 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	awssdkmodel "github.com/aws-controllers-k8s/code-generator/pkg/api"
 	"github.com/aws-controllers-k8s/pkg/names"
-	awssdkmodel "github.com/aws/aws-sdk-go/private/model/api"
 
 	ackgenconfig "github.com/aws-controllers-k8s/code-generator/pkg/config"
 	"github.com/aws-controllers-k8s/code-generator/pkg/fieldpath"
@@ -332,17 +332,6 @@ func SetResource(
 			// 	out += fmt.Sprintf(
 			// 		"%sif %s  {\n", indent, sourceAdaptedVarName,
 			// 	)
-		} else if targetMemberShapeRef.Shape.Type == "integer" || targetMemberShapeRef.Shape.Type == "long" {
-
-			out += fmt.Sprintf(
-				"%sif %s > 0 {\n", indent, sourceAdaptedVarName,
-			)
-			// } else if targetMemberShapeRef.Shape.Type == "boolean" {
-
-			// 	out += fmt.Sprintf(
-			// 		"%sif %s  {\n", indent, sourceAdaptedVarName,
-			// 	)
-
 		} else {
 
 			out += fmt.Sprintf(
@@ -386,7 +375,6 @@ func SetResource(
 					indentLevel+1,
 				)
 			}
-
 		default:
 
 			if setCfg != nil && setCfg.From != nil {
@@ -660,12 +648,6 @@ func setResourceReadMany(
 			// 	out += fmt.Sprintf(
 			// 		"%sif %s  {\n", indent, sourceAdaptedVarName,
 			// 	)
-		} else if targetMemberShapeRef.Shape.Type == "integer" || targetMemberShapeRef.Shape.Type == "long" {
-
-			out += fmt.Sprintf(
-				"%sif %s > 0 {\n", innerForIndent, sourceAdaptedVarName,
-			)
-
 		} else {
 			out += fmt.Sprintf(
 				"%sif %s != nil {\n", innerForIndent, sourceAdaptedVarName,
@@ -912,7 +894,7 @@ func SetResourceGetAttributes(
 		}
 	}
 	sort.Strings(sortedAttrFieldNames)
-	for _, fieldName := range sortedAttrFieldNames {
+	for index, fieldName := range sortedAttrFieldNames {
 		adaptiveTargetVarName := targetVarName + cfg.PrefixConfig.StatusField
 		if r.IsPrimaryARNField(fieldName) {
 			if !mdGuardOut {
@@ -922,7 +904,7 @@ func SetResourceGetAttributes(
 				mdGuardOut = true
 			}
 			out += fmt.Sprintf(
-				"%stmpARN := ackv1alpha1.AWSResourceName(*%s.Attributes[\"%s\"])\n",
+				"%stmpARN := ackv1alpha1.AWSResourceName(%s.Attributes[\"%s\"])\n",
 				indent,
 				sourceVarName,
 				fieldName,
@@ -944,7 +926,7 @@ func SetResourceGetAttributes(
 				mdGuardOut = true
 			}
 			out += fmt.Sprintf(
-				"%stmpOwnerID := ackv1alpha1.AWSAccountID(*%s.Attributes[\"%s\"])\n",
+				"%stmpOwnerID := ackv1alpha1.AWSAccountID(%s.Attributes[\"%s\"])\n",
 				indent,
 				sourceVarName,
 				fieldName,
@@ -962,12 +944,18 @@ func SetResourceGetAttributes(
 			adaptiveTargetVarName = targetVarName + cfg.PrefixConfig.SpecField
 		}
 		out += fmt.Sprintf(
-			"%s%s.%s = %s.Attributes[\"%s\"]\n",
+			"%sf%d, _ := %s.Attributes[\"%s\"]\n",
+			indent,
+			index,
+			sourceVarName,
+			fieldName,
+		)
+		out += fmt.Sprintf(
+			"%s%s.%s = &f%d\n",
 			indent,
 			adaptiveTargetVarName,
 			fieldNames.Camel,
-			sourceVarName,
-			fieldName,
+			index,
 		)
 	}
 	return out
@@ -1220,6 +1208,7 @@ func SetResourceIdentifiers(
 // An example of code with no additional keys:
 //
 // ```
+//
 //	tmp, ok := field["brokerID"]
 //	if  !ok {
 //		return ackerrors.MissingNameIdentifier
@@ -1255,22 +1244,23 @@ func SetResourceIdentifiers(
 // An example of code that uses the ARN:
 //
 // ```
-//	tmpArn, ok := field["arn"]
-//  if !ok {
-//		return ackerrors.MissingNameIdentifier
-//	}
-//	if r.ko.Status.ACKResourceMetadata == nil {
-//		r.ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
-//	}
-//	arn := ackv1alpha1.AWSResourceName(tmp)
-//  
-//  r.ko.Status.ACKResourceMetadata.ARN = &arn
 //
-//  f0, f0ok := fields["modelPackageName"]
+//		tmpArn, ok := field["arn"]
+//	 if !ok {
+//			return ackerrors.MissingNameIdentifier
+//		}
+//		if r.ko.Status.ACKResourceMetadata == nil {
+//			r.ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+//		}
+//		arn := ackv1alpha1.AWSResourceName(tmp)
 //
-//	if f0ok {
-//		r.ko.Spec.ModelPackageName = &f0
-//	}
+//	 r.ko.Status.ACKResourceMetadata.ARN = &arn
+//
+//	 f0, f0ok := fields["modelPackageName"]
+//
+//		if f0ok {
+//			r.ko.Spec.ModelPackageName = &f0
+//		}
 //
 // ```
 func PopulateResourceFromAnnotation(
@@ -1357,7 +1347,6 @@ func PopulateResourceFromAnnotation(
 		"NextToken",
 		"MaxResults",
 	}
-
 
 	for memberIndex, memberName := range inputShape.MemberNames() {
 		if util.InStrings(memberName, paginatorFieldLookup) {
@@ -1708,6 +1697,19 @@ func SetResourceForStruct(
 	var sourceAdaptedVarName, qualifiedTargetVar string
 
 	for _, targetMemberName := range targetShape.MemberNames() {
+		// To check if the field member has `ignore` set to `true`.
+		// This condition currently applies only for members of a field whose shape is `structure`.
+		var setCfg *ackgenconfig.SetFieldConfig
+		f, ok := r.Fields[targetFieldPath]
+		if ok {
+			mf, ok := f.MemberFields[targetMemberName]
+			if ok {
+				setCfg = mf.GetSetterConfig(op)
+				if setCfg != nil && setCfg.IgnoreResourceSetter() {
+					continue
+				}
+			}
+		}
 
 		sourceMemberShapeRef = sourceShape.MemberRefs[targetMemberName]
 		if sourceMemberShapeRef == nil {
@@ -1733,34 +1735,13 @@ func SetResourceForStruct(
 		// 	"%sif %s != nil {\n", indent, sourceAdaptedVarName,
 		// )
 
-		if targetMemberShapeRef.Shape.IsEnum() {
-
-			out += fmt.Sprintf(
-				"%sif %s != \"\" {\n", indent, sourceAdaptedVarName,
-			)
-			// This is for edge case - in efs controller
-			// FileSystemSize.Value is int64 and rest of fields are *int64
-		} else if targetMemberShapeRef.Shape.Type == "long" && targetMemberShapeRef.ShapeName == "FileSystemSizeValue" {
-
-			out += fmt.Sprintf(
-				"%sif %s > 0 {\n", indent, sourceAdaptedVarName,
-			)
-
-			// } else if targetMemberShapeRef.Shape.Type == "integer" {
-
-			// 	out += fmt.Sprintf(
-			// 		"%sif %s > 0 {\n", indent, sourceAdaptedVarName,
-			// 	)
-		} else if targetMemberShapeRef.Shape.Type == "boolean" {
-			out += fmt.Sprintf(
-				"%sif %s  {\n", indent, sourceAdaptedVarName,
-			)
-		} else {
+		if !sourceMemberShape.IsEnum() && sourceMemberShape.ShapeName != "Boolean" {
 
 			out += fmt.Sprintf(
 				"%sif %s != nil {\n", indent, sourceAdaptedVarName,
 			)
-
+			// This is for edge case - in efs controller
+			// FileSystemSize.Value is int64 and rest of fields are *int64
 		}
 
 		qualifiedTargetVar = fmt.Sprintf(
@@ -1771,8 +1752,6 @@ func SetResourceForStruct(
 		// qualifiedTargetVar = fmt.Sprintf(
 		// 	"%s.%s", targetVarName, targetMemberCleanNames.Original,
 		// )
-
-		//fmt.Println("targetMemberCleanNames.Camel", targetMemberCleanNames.Camel)
 
 		updatedTargetFieldPath := targetFieldPath + "." + targetMemberCleanNames.Camel
 
@@ -1813,9 +1792,11 @@ func SetResourceForStruct(
 				indentLevel+1,
 			)
 		}
-		out += fmt.Sprintf(
-			"%s}\n", indent,
-		)
+		if !sourceMemberShape.IsEnum() && sourceMemberShape.ShapeName != "Boolean" {
+			out += fmt.Sprintf(
+				"%s}\n", indent,
+			)
+		}
 	}
 	if len(targetShape.MemberNames()) == 0 {
 		// This scenario can occur when the targetShape is a primitive, but
@@ -1973,19 +1954,24 @@ func setResourceForSlice(
 		)
 	}
 	// This is for AWS-SDK-GO-V2
-	//addressOfVar := ""
+	addressOfVar := ""
 	switch targetShape.MemberRef.Shape.Type {
 	case "structure", "list", "map":
 		break
 	default:
 		// This is for AWS-SDK-GO-V2
-		//addressOfVar = "&"
+		
 	}
 	//  f0 = append(f0, elem0)
 
+	if sourceShape.ShapeName == "StringList" {
+		addressOfVar = "&"
+	}
+
 	// This is for AWS-SDK-GO-V2
 	//out += fmt.Sprintf("%s\t%s = append(%s, %s%s)\n", indent, targetVarName, targetVarName, addressOfVar, elemVarName)
-	out += fmt.Sprintf("%s\t%s = append(%s, %s)\n", indent, targetVarName, targetVarName, elemVarName)
+
+	out += fmt.Sprintf("%s\t%s = append(%s, %s%s)\n", indent, targetVarName, targetVarName, addressOfVar, elemVarName)
 	out += fmt.Sprintf("%s}\n", indent)
 
 	return out
@@ -2088,7 +2074,7 @@ func setResourceForScalar(
 
 	// This is for AWS-SDK-GO-V2
 	if shape.IsEnum() {
-		out += fmt.Sprintf("%s%s = (*string)(&%s)\n", indent, targetVar, setTo)
+		out += fmt.Sprintf("%s%s = aws.String(string(%s))\n", indent, targetVar, strings.TrimPrefix(setTo, "*"))
 		// } else if shape.Type == "integer" {
 
 		// 	out += fmt.Sprintf("%s%s := int64(%s)\n", indent, "number", setTo)
@@ -2096,24 +2082,12 @@ func setResourceForScalar(
 
 		// This is for edge case - in efs  controller
 		// targetvar is int64 and rest of targetvar are *int64 - EFS controller
-	} else if shape.Type == "long" && shapeRef.ShapeName == "FileSystemSizeValue" {
-
-		out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
-
-		// This is for edge case - in ecr controller
-		// ScanOnPuSH - targetvar is bool and rest of taregetvar are *bool - ECR controller
-	} else if shape.Type == "boolean" && shape.GoType() == "*bool" && shape.ShapeName == "ScanOnPushFlag" {
-
-		out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
-
-	} else if !strings.Contains(targetVar, ".") {
-
+	} else if shape.ShapeName == "Boolean" {
 		out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
 	} else if shape.Type == "integer" {
-
-		out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
-	} else {
-
+		out += fmt.Sprintf("%stemp := int64(*%s)\n", indent, setTo)
+		out += fmt.Sprintf("%s%s = &temp\n", indent, targetVar)
+	}else {
 		out += fmt.Sprintf("%s%s = %s\n", indent, targetVar, setTo)
 	}
 	return out

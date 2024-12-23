@@ -18,8 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	awssdkmodel "github.com/aws-controllers-k8s/code-generator/pkg/api"
 	"github.com/aws-controllers-k8s/pkg/names"
-	awssdkmodel "github.com/aws/aws-sdk-go/private/model/api"
 
 	ackgenconfig "github.com/aws-controllers-k8s/code-generator/pkg/config"
 	"github.com/aws-controllers-k8s/code-generator/pkg/model"
@@ -833,11 +833,14 @@ func fastCompareTypes(
 		)
 		out += fmt.Sprintf(
 			"%s}\n", indent,
-		)
+		)		
 	default:
 		// For any other type, we can use the HasNilDifference function to
 		// eliminate early on the case where one of the objects is nil and
 		// other is not.
+		// if memberShape.ShapeName == "ElasticLoadBalancing" {
+		// 	fmt.Println(deltaVarName, firstResVarName, secondResVarName, fieldPath, memberShape.GoType(), memberShape.GoTypeElem())
+		// }
 		out += compareNil(
 			compareConfig,
 			memberShape,
