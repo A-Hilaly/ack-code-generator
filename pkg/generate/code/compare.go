@@ -95,7 +95,8 @@ func CompareResource(
 	// Number of levels of indentation to use
 	indentLevel int,
 ) string {
-	out := "\n"
+	var out strings.Builder
+	out.WriteString("\n")
 
 	resConfig := cfg.GetResourceConfig(r.Names.Camel)
 
@@ -838,9 +839,6 @@ func fastCompareTypes(
 		// For any other type, we can use the HasNilDifference function to
 		// eliminate early on the case where one of the objects is nil and
 		// other is not.
-		// if memberShape.ShapeName == "ElasticLoadBalancing" {
-		// 	fmt.Println(deltaVarName, firstResVarName, secondResVarName, fieldPath, memberShape.GoType(), memberShape.GoTypeElem())
-		// }
 		out += compareNil(
 			compareConfig,
 			memberShape,

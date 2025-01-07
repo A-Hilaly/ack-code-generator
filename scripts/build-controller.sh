@@ -9,6 +9,8 @@ ROOT_DIR="$SCRIPTS_DIR/.."
 
 source "$SCRIPTS_DIR/lib/common.sh"
 
+AWS_SDK_GO_VERSION=v1.32.6
+
 check_is_installed controller-gen "You can install controller-gen with the helper scripts/install-controller-gen.sh"
 
 if ! k8s_controller_gen_version_equals "$CONTROLLER_TOOLS_VERSION"; then

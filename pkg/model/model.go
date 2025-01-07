@@ -434,9 +434,6 @@ func (m *Model) GetTypeDefs() ([]*TypeDef, error) {
 				continue
 			}
 			gt := m.getShapeCleanGoType(memberShape)
-			// if memberName == "ElasticLoadBalancing" {
-			// 	fmt.Println(gt)
-			// }
 			attrs[memberName] = NewAttr(memberNames, gt, memberShape)
 		}
 		if len(attrs) == 0 {
@@ -489,10 +486,7 @@ func (m *Model) getShapeCleanGoType(shape *awssdkmodel.Shape) string {
 		if m.SDKAPI.HasConflictingTypeName(goType, m.cfg) {
 			typeNames.Camel += ConflictingNameSuffix
 		}
-		if typeNames.Camel == "ElasticLoadBalancing" {
-			fmt.Println(goType, typeNames.Original, typeNames.Camel)
-		}
-		return typeNames.Original
+		return "*" + typeNames.Camel
 	default:
 		return shape.GoType()
 	}

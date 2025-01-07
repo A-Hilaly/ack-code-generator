@@ -81,7 +81,8 @@ type ShapeRef struct {
 type Shape struct {
 	API           *API `json:"-"`
 	ShapeName     string
-	Documentation string `json:"-"`
+	Documentation string       `json:"-"`
+	DefaultValue  *interface{} `json:"-"`
 
 	// References of struct members will include their originally modeled
 	// member name for cross references.
@@ -1051,6 +1052,11 @@ func (s *Shape) GoCode() string {
 // IsEnum returns whether this shape is an enum list
 func (s *Shape) IsEnum() bool {
 	return s.Type == "string" && len(s.Enum) > 0
+}
+
+// HasDefaultValue returns whether this shape has a default value
+func (s *Shape) HasDefaultValue() bool {
+	return s.DefaultValue != nil
 }
 
 // IsRequired returns if member is a required field. Required fields are fields

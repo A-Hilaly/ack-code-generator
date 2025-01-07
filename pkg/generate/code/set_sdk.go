@@ -214,13 +214,12 @@ func SetSDK(
 				indent, sourceVarName, sourceVarName,
 			)
 			out += fmt.Sprintf(
-				"%s\t%s.%s = string(%s.Status.ACKResourceMetadata.ARN)\n",
+				"%s\t%s.%s = (*string)(%s.Status.ACKResourceMetadata.ARN)\n",
 				indent, targetVarName, memberName, sourceVarName,
 			)
 			out += fmt.Sprintf(
 				"%s}\n", indent,
 			)
-			fmt.Println("Resoure ARN Out", out)
 			continue
 		}
 
@@ -335,7 +334,15 @@ func SetSDK(
 
 		switch memberShape.Type {
 		case "list", "structure", "map":
-			{
+			if memberShape.Type == "list" &&
+				memberShape.MemberRef.Shape.Type == "string" &&
+				!memberShape.MemberRef.Shape.IsEnum() {
+				out += fmt.Sprintf("%s\t%s.%s = aws.ToStringSlice(%s)\n", indent, targetVarName, memberName, sourceAdaptedVarName)
+			} else if memberShape.Type == "map" &&
+				memberShape.KeyRef.Shape.Type == "string" &&
+				memberShape.ValueRef.Shape.Type == "string" {
+				out += fmt.Sprintf("%s\t%s.%s = aws.ToStringMap(%s)\n", indent, targetVarName, memberName, sourceAdaptedVarName)
+			} else {
 
 				memberVarName := fmt.Sprintf("f%d", memberIndex)
 				out += varEmptyConstructorSDKType(
@@ -1156,7 +1163,15 @@ func SetSDKForStruct(
 
 		switch memberShape.Type {
 		case "list", "structure", "map":
-			{
+			if memberShape.Type == "list" &&
+				memberShape.MemberRef.Shape.Type == "string" &&
+				!memberShape.MemberRef.Shape.IsEnum() {
+				out += fmt.Sprintf("%s\t%s.%s = aws.ToStringSlice(%s)\n", indent, targetVarName, memberName, sourceAdaptedVarName)
+			} else if memberShape.Type == "map" &&
+				memberShape.KeyRef.Shape.Type == "string" &&
+				memberShape.ValueRef.Shape.Type == "string" {
+				out += fmt.Sprintf("%s\t%s.%s = aws.ToStringMap(%s)\n", indent, targetVarName, memberName, sourceAdaptedVarName)
+			} else {
 
 				memberVarName := fmt.Sprintf(
 					"%sf%d",
@@ -1286,12 +1301,12 @@ func setSDKForSlice(
 	// This is for AWS-SDK-GO-V2
 	//out += fmt.Sprintf("%s\t%s = append(%s, %s%s)\n", indent, targetVarName, targetVarName, addressOfVar, elemVarName)
 	setPointer := ""
-	if targetShape.ShapeName != "StringList" {
+	if (targetShape.MemberRef.Shape.Type == "string" && !targetShape.MemberRef.Shape.IsEnum()) || targetShape.MemberRef.Shape.Type == "structure" {
 		setPointer = "*"
 	}
-	if targetShape.MemberRef.Shape != nil && targetShape.MemberRef.Shape.IsEnum() {
-		setPointer = ""
-		elemVarName = fmt.Sprintf("svcsdktypes.%s(%s)",targetShape.MemberRef.ShapeName, elemVarName)
+	if targetShape.MemberRef.Shape.IsEnum() {
+		// setPointer = ""
+		elemVarName = fmt.Sprintf("svcsdktypes.%s(%s)", targetShape.MemberRef.ShapeName, elemVarName)
 	}
 	out += fmt.Sprintf("%s\t%s = append(%s, %s%s)\n", indent, targetVarName, targetVarName, setPointer, elemVarName)
 	out += fmt.Sprintf("%s}\n", indent)
@@ -1385,12 +1400,11 @@ func varEmptyConstructorSDKType(
 		if goType == ".Tag" {
 			out += fmt.Sprintf("%s%s := %s{}\n", indent, varName, goType)
 		} else {
-
 			out += fmt.Sprintf("%s%s := &%s{}\n", indent, varName, goType)
 		}
 	case "list":
 		if shape.MemberRef.Shape != nil && shape.MemberRef.Shape.IsEnum() {
-			goType = "[]svcsdktypes."+shape.MemberRef.ShapeName
+			goType = "[]svcsdktypes." + shape.MemberRef.ShapeName
 		}
 		out += fmt.Sprintf("%s%s := %s{}\n", indent, varName, goType)
 	case "map":
@@ -1485,9 +1499,9 @@ func varEmptyConstructorK8sType(
 		// var f0 string
 		setPointer := ""
 
-		if shape.IsEnum() {
-			setPointer = "*"
-		}
+		setPointer = "*"
+		// if shape.IsEnum() {
+		// }
 		out += fmt.Sprintf("%svar %s %s%s\n", indent, varName, setPointer, goType)
 	}
 	return out
@@ -1531,7 +1545,7 @@ func setSDKForScalar(
 
 	} else if shape.IsEnum() {
 		// 	//out += fmt.Sprintf("%s%s.Set%s(%s)\n", indent, targetVarName, targetFieldName, setTo)
-		out += fmt.Sprintf("%s.%s = %s(%s)", targetVarName, targetFieldName, shape.ShapeName, setTo)
+		out += fmt.Sprintf("%s.%s = svcsdktypes.%s(%s)", targetVarName, targetFieldName, shape.ShapeName, setTo)
 
 		// This is edge case in ECR controller where ImageScanningConfiguration.ScanOnPush is bool not *bool
 	} else if targetVarType == "structure" && shape.Type == "boolean" && targetFieldName == "ScanOnPush" {

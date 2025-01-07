@@ -331,7 +331,7 @@ func newResourceManager(
 		rr:           rr,
 		awsAccountID: id,
 		awsRegion:    region,
-		sdkapi:	   svcsdk.NewFromConfig(clientcfg),
+		sdkapi:	      svcsdk.NewFromConfig(clientcfg, ),
 	}, nil
 }
 

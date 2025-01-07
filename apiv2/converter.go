@@ -1,11 +1,5 @@
 package apiv2
 
-/*
-* This MF will help me translate a file into another file
-
-SDK V2 file is a bit tricky/fancy
-But ig we can get this ish done quilicky lili
-*/
 import (
 	"encoding/json"
 	"errors"
@@ -169,6 +163,10 @@ func createApiShape(shape Shape) (*api.Shape, error) {
 		KeyRef:     api.ShapeRef{},
 		ValueRef:   api.ShapeRef{},
 		Required:   []string{},
+	}
+	val, ok := shape.Traits["smithy.api#default"]
+	if ok {
+		apiShape.DefaultValue = &val
 	}
 
 	if isException {

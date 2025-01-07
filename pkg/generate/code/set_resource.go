@@ -308,31 +308,9 @@ func SetResource(
 		// ko.Status.VpnMemberships = field0
 
 		// This is for AWS-SDK-GO-V2
-		if targetMemberShapeRef.Shape.IsEnum() {
+		if !targetMemberShapeRef.Shape.IsEnum() && !targetMemberShape.HasDefaultValue() {
 
-			out += fmt.Sprintf(
-				"%sif %s != \"\" {\n", indent, sourceAdaptedVarName,
-			)
-
-			// } else if targetMemberShapeRef.Shape.Type == "long" && strings.HasSuffix(targetMemberShapeRef.ShapeName, "Value") {
-
-			// 	out += fmt.Sprintf(
-			// 		"%sif %s > 0 {\n", indent, sourceAdaptedVarName,
-			// 	)
-
-			// else if targetMemberShapeRef.Shape.Type == "integer" {
-
-			// 	out += fmt.Sprintf(
-			// 		"%sif %s > 0 {\n", indent, sourceAdaptedVarName,
-			// 	)
-			// }
-
-			// } else if targetMemberShapeRef.Shape.Type == "boolean" && targetMemberShapeRef.Shape.GoType() == "bool" {
-
-			// 	out += fmt.Sprintf(
-			// 		"%sif %s  {\n", indent, sourceAdaptedVarName,
-			// 	)
-		} else {
+			// if !sourceMemberShapeRef.Shape.IsEnum() && sourceMemberShapeRef.ShapeName != "Boolean" && sourceMemberShapeRef.Shape.ShapeName != "BooleanType" {
 
 			out += fmt.Sprintf(
 				"%sif %s != nil {\n", indent, sourceAdaptedVarName,
@@ -344,8 +322,14 @@ func SetResource(
 		)
 
 		switch targetMemberShape.Type {
-		case "list", "structure", "map":
-			{
+		case "list", "map", "structure":
+			if targetMemberShape.Type == "list" && targetMemberShape.MemberRef.Shape.Type == "string" {
+				out += fmt.Sprintf("%s%s = aws.StringSlice(%s)\n", indent, qualifiedTargetVar, sourceAdaptedVarName)
+			} else if targetMemberShape.Type == "map" &&
+				targetMemberShape.KeyRef.Shape.Type == "string" &&
+				targetMemberShape.ValueRef.Shape.Type == "string" {
+				out += fmt.Sprintf("%s%s = aws.StringMap(%s)\n", indent, qualifiedTargetVar, sourceAdaptedVarName)
+			} else {
 
 				memberVarName := fmt.Sprintf("f%d", memberIndex)
 
@@ -389,17 +373,19 @@ func SetResource(
 				indentLevel+1,
 			)
 		}
-		out += fmt.Sprintf(
-			"%s} else {\n", indent,
-		)
+		if !targetMemberShape.IsEnum() && !targetMemberShape.HasDefaultValue() {
+			out += fmt.Sprintf(
+				"%s} else {\n", indent,
+			)
 
-		out += fmt.Sprintf(
-			"%s%s%s.%s = nil\n", indent, indent,
-			targetAdaptedVarName, f.Names.Camel,
-		)
-		out += fmt.Sprintf(
-			"%s}\n", indent,
-		)
+			out += fmt.Sprintf(
+				"%s%s%s.%s = nil\n", indent, indent,
+				targetAdaptedVarName, f.Names.Camel,
+			)
+			out += fmt.Sprintf(
+				"%s}\n", indent,
+			)
+		}
 	}
 	return out
 }
@@ -1735,11 +1721,11 @@ func SetResourceForStruct(
 		// 	"%sif %s != nil {\n", indent, sourceAdaptedVarName,
 		// )
 
-		if !sourceMemberShape.IsEnum() && sourceMemberShape.ShapeName != "Boolean" {
-
+		if !sourceMemberShape.IsEnum() && !sourceMemberShape.HasDefaultValue() {
 			out += fmt.Sprintf(
 				"%sif %s != nil {\n", indent, sourceAdaptedVarName,
 			)
+
 			// This is for edge case - in efs controller
 			// FileSystemSize.Value is int64 and rest of fields are *int64
 		}
@@ -1757,7 +1743,15 @@ func SetResourceForStruct(
 
 		switch sourceMemberShape.Type {
 		case "list", "structure", "map":
-			{
+			if sourceMemberShape.Type == "list" &&
+				!sourceMemberShape.MemberRef.Shape.IsEnum() &&
+				sourceMemberShape.MemberRef.Shape.Type == "string" {
+				out += fmt.Sprintf("%s%s = aws.StringSlice(%s)\n", indent, qualifiedTargetVar, sourceAdaptedVarName)
+			} else if sourceMemberShape.Type == "map" &&
+				sourceMemberShape.KeyRef.Shape.Type == "string" &&
+				sourceMemberShape.ValueRef.Shape.Type == "string" {
+				out += fmt.Sprintf("%s%s = aws.StringMap(%s)\n", indent, qualifiedTargetVar, sourceAdaptedVarName)
+			} else {
 				out += varEmptyConstructorK8sType(
 					cfg, r,
 					indexedVarName,
@@ -1792,7 +1786,7 @@ func SetResourceForStruct(
 				indentLevel+1,
 			)
 		}
-		if !sourceMemberShape.IsEnum() && sourceMemberShape.ShapeName != "Boolean" {
+		if !sourceMemberShape.IsEnum() && !sourceMemberShape.HasDefaultValue() {
 			out += fmt.Sprintf(
 				"%s}\n", indent,
 			)
@@ -1954,24 +1948,27 @@ func setResourceForSlice(
 		)
 	}
 	// This is for AWS-SDK-GO-V2
-	addressOfVar := ""
+	// addressOfVar := ""
 	switch targetShape.MemberRef.Shape.Type {
 	case "structure", "list", "map":
 		break
 	default:
 		// This is for AWS-SDK-GO-V2
-		
+
 	}
 	//  f0 = append(f0, elem0)
 
-	if sourceShape.ShapeName == "StringList" {
-		addressOfVar = "&"
-	}
+	// if !sourceShape.MemberRef.Shape.IsEnum() {
+	// 	addressOfVar = "&"
+	// }
+	// if sourceShape.Type == "list" {
+	// 	addressOfVar = "&"
+	// }
 
 	// This is for AWS-SDK-GO-V2
 	//out += fmt.Sprintf("%s\t%s = append(%s, %s%s)\n", indent, targetVarName, targetVarName, addressOfVar, elemVarName)
 
-	out += fmt.Sprintf("%s\t%s = append(%s, %s%s)\n", indent, targetVarName, targetVarName, addressOfVar, elemVarName)
+	out += fmt.Sprintf("%s\t%s = append(%s, %s)\n", indent, targetVarName, targetVarName, elemVarName)
 	out += fmt.Sprintf("%s}\n", indent)
 
 	return out
@@ -2072,24 +2069,40 @@ func setResourceForScalar(
 
 	}
 
-	// This is for AWS-SDK-GO-V2
-	if shape.IsEnum() {
-		out += fmt.Sprintf("%s%s = aws.String(string(%s))\n", indent, targetVar, strings.TrimPrefix(setTo, "*"))
-		// } else if shape.Type == "integer" {
-
-		// 	out += fmt.Sprintf("%s%s := int64(%s)\n", indent, "number", setTo)
-		// 	out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, "number")
-
-		// This is for edge case - in efs  controller
-		// targetvar is int64 and rest of targetvar are *int64 - EFS controller
-	} else if shape.ShapeName == "Boolean" {
-		out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
-	} else if shape.Type == "integer" {
-		out += fmt.Sprintf("%stemp := int64(*%s)\n", indent, setTo)
-		out += fmt.Sprintf("%s%s = &temp\n", indent, targetVar)
-	}else {
+	switch shape.Type {
+	case "list":
 		out += fmt.Sprintf("%s%s = %s\n", indent, targetVar, setTo)
+	case "integer":
+		out += fmt.Sprintf("%s%stemp := int64(*%s)\n", indent, shape.ShapeName, setTo)
+		out += fmt.Sprintf("%s%s = &%stemp\n", indent, targetVar, shape.ShapeName)
+	default:
+		if shape.HasDefaultValue() {
+			out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
+		} else if shape.IsEnum() {
+			out += fmt.Sprintf("%s%s = aws.String(string(%s))\n", indent, targetVar, strings.TrimPrefix(setTo, "*"))
+		} else {
+			out += fmt.Sprintf("%s%s = %s\n", indent, targetVar, setTo)
+		}
 	}
+
+	// This is for AWS-SDK-GO-V2
+	// if shape.IsEnum() {
+	// 	out += fmt.Sprintf("%s%s = aws.String(string(%s))\n", indent, targetVar, strings.TrimPrefix(setTo, "*"))
+	// 	// } else if shape.Type == "integer" {
+
+	// 	// 	out += fmt.Sprintf("%s%s := int64(%s)\n", indent, "number", setTo)
+	// 	// 	out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, "number")
+
+	// 	// This is for edge case - in efs  controller
+	// 	// targetvar is int64 and rest of targetvar are *int64 - EFS controller
+	// } else if shape.HasDefaultValue() {
+	// 	out += fmt.Sprintf("%s%s = &%s\n", indent, targetVar, setTo)
+	// } else if shape.Type == "integer" {
+	// 	out += fmt.Sprintf("%stemp := int64(*%s)\n", indent, setTo)
+	// 	out += fmt.Sprintf("%s%s = &temp\n", indent, targetVar)
+	// }else {
+	// 	out += fmt.Sprintf("%s%s = %s\n", indent, targetVar, setTo)
+	// }
 	return out
 }
 

@@ -204,16 +204,16 @@ func checkRequiredFieldsMissingFromShapeReadMany(
 // Example Output for fieldpath "JWTConfiguration.Issuer.SomeField" is
 // "ko.Spec.JWTConfiguration == nil || ko.Spec.JWTConfiguration.Issuer == nil"
 func CheckNilFieldPath(field *model.Field, sourceVarName string) string {
-	out := ""
+	var out strings.Builder
 	fp := fieldpath.FromString(field.Path)
 	// remove fieldName from fieldPath before adding nil checks
 	fp.Pop()
 	fieldNamePrefix := ""
 	for fp.Size() > 0 {
 		fieldNamePrefix = fmt.Sprintf("%s.%s", fieldNamePrefix, fp.PopFront())
-		out += fmt.Sprintf(" || %s%s == nil", sourceVarName, fieldNamePrefix)
+		out.WriteString(fmt.Sprintf(" || %s%s == nil", sourceVarName, fieldNamePrefix))
 	}
-	return strings.TrimPrefix(out, " || ")
+	return strings.TrimPrefix(out.String(), " || ")
 }
 
 // CheckNilReferencesPath returns the condition statement for Nil check
@@ -228,7 +228,7 @@ func CheckNilFieldPath(field *model.Field, sourceVarName string) string {
 // and sourceVarName "obj" is
 // "obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil"
 func CheckNilReferencesPath(field *model.Field, sourceVarName string) string {
-	out := ""
+	var out strings.Builder
 	if field.HasReference() {
 		refPath := fieldpath.FromString(field.FieldConfig.References.Path)
 		// Remove the front from reference path because "Spec" or "Status" being
@@ -236,8 +236,8 @@ func CheckNilReferencesPath(field *model.Field, sourceVarName string) string {
 		fieldNamePrefix := "." + refPath.PopFront()
 		for refPath.Size() > 0 {
 			fieldNamePrefix = fmt.Sprintf("%s.%s", fieldNamePrefix, refPath.PopFront())
-			out += fmt.Sprintf(" || %s%s == nil", sourceVarName, fieldNamePrefix)
+			out.WriteString(fmt.Sprintf(" || %s%s == nil", sourceVarName, fieldNamePrefix))
 		}
 	}
-	return strings.TrimPrefix(out, " || ")
+	return strings.TrimPrefix(out.String(), " || ")
 }
